@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Juic",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "tauri": {
     "pattern": {
@@ -25,8 +25,14 @@
         "all": false,
         "sidecar": true,
         "scope": [
-          { "name": "bin/juicity-client", "sidecar": true },
-          { "name": "bin/clash", "sidecar": true }
+          {
+            "name": "bin/juicity-client",
+            "sidecar": true
+          },
+          {
+            "name": "bin/clash",
+            "sidecar": true
+          }
         ]
       },
       "dialog": {
@@ -41,7 +47,10 @@
       "deb": {
         "depends": []
       },
-      "externalBin": ["bin/juicity-client", "bin/clash"],
+      "externalBin": [
+        "bin/juicity-client",
+        "bin/clash"
+      ],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -58,7 +67,9 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "resources": ["etc"],
+      "resources": [
+        "etc"
+      ],
       "shortDescription": "",
       "targets": "all",
       "windows": {
