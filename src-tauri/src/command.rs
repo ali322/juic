@@ -1,8 +1,8 @@
-use pinger::{ping, PingResult};
 use crate::sysproxy::Sysproxy;
-use std::fs;
+use pinger::{ping, PingResult};
+use std::{collections::HashMap, fs};
 use tauri::{
-    api::process::{Command, CommandEvent, self},
+    api::process::{self, Command, CommandEvent},
     Builder, Wry,
 };
 
@@ -52,10 +52,17 @@ fn run_sidecar(window: tauri::Window, app_handle: tauri::AppHandle, config: Stri
         fs::create_dir_all(&dest_dir).expect("Failed to create etc dir");
     }
     fs::write(dest_dir.join("config.json"), config).expect("Failed to write config.json");
+    let mut envs = HashMap::new();
+    envs.insert("QUIC_GO_ENABLE_GSO".to_string(), "true".to_string());
     tauri::async_runtime::spawn(async move {
         let (mut rx, _child) = Command::new_sidecar("juicity-client")
             .expect("Failed to setup `juicity` sidecar")
-            .args(vec!["run", "-c", dest_dir.join("config.json").to_str().unwrap()])
+            .envs(envs)
+            .args(vec![
+                "run",
+                "-c",
+                dest_dir.join("config.json").to_str().unwrap(),
+            ])
             .current_dir(res_dir)
             .spawn()
             .expect("Failed to spawn juicity run");
@@ -72,7 +79,7 @@ fn run_sidecar(window: tauri::Window, app_handle: tauri::AppHandle, config: Stri
 
 #[tauri::command]
 fn stop_sidecar() {
-  process::kill_children();
+    process::kill_children();
 }
 
 #[tauri::command]
@@ -87,35 +94,42 @@ fn run_clash(window: tauri::Window, app_handle: tauri::AppHandle, config: String
     }
     fs::write(dest_dir.join("clash.yaml"), config).expect("Failed to write clash.yaml");
     tauri::async_runtime::spawn(async move {
-      let (mut rx, _child) = Command::new_sidecar("clash")
-          .expect("Failed to setup `clash` sidecar")
-          .args(vec!["-f", dest_dir.join("clash.yaml").to_str().unwrap()])
-          .current_dir(res_dir)
-          .spawn()
-          .expect("Failed to spawn clash run");
-      while let Some(event) = rx.recv().await {
-          if let CommandEvent::Stdout(line) = event {
-              println!("{}", &line);
-              window
-                  .emit("sidecar-running", Some(format!("{}", line)))
-                  .expect("failed to emit event");
-          }
-      }
-  });
+        let (mut rx, _child) = Command::new_sidecar("clash")
+            .expect("Failed to setup `clash` sidecar")
+            .args(vec!["-f", dest_dir.join("clash.yaml").to_str().unwrap()])
+            .current_dir(res_dir)
+            .spawn()
+            .expect("Failed to spawn clash run");
+        while let Some(event) = rx.recv().await {
+            if let CommandEvent::Stdout(line) = event {
+                println!("{}", &line);
+                window
+                    .emit("sidecar-running", Some(format!("{}", line)))
+                    .expect("failed to emit event");
+            }
+        }
+    });
 }
 
 #[tauri::command]
 fn toggle_sysproxy(is_enabled: bool, port: u16) {
-  // println!("is actived {} {}", is_enabled, port);
-  let sysproxy = Sysproxy{
-    enable: is_enabled,
-    host: "127.0.0.1".into(),
-    port: port,
-    bypass: "localhost,127.0.0.1/8".into(),
-  };
-  sysproxy.set_system_proxy().unwrap();
+    // println!("is actived {} {}", is_enabled, port);
+    let sysproxy = Sysproxy {
+        enable: is_enabled,
+        host: "127.0.0.1".into(),
+        port: port,
+        bypass: "localhost,127.0.0.1/8".into(),
+    };
+    sysproxy.set_system_proxy().unwrap();
 }
 
 pub fn apply_command(builder: Builder<Wry>) -> Builder<Wry> {
-    builder.invoke_handler(tauri::generate_handler![run_sidecar, stop_sidecar, latency, run_clash, latencies, toggle_sysproxy])
+    builder.invoke_handler(tauri::generate_handler![
+        run_sidecar,
+        stop_sidecar,
+        latency,
+        run_clash,
+        latencies,
+        toggle_sysproxy
+    ])
 }
